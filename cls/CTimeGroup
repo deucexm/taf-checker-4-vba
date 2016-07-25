@@ -1,0 +1,79 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pBeginStr As String
+Private pEndStr As String
+Private pDateBegin As Date
+Private pDateEnd As Date
+Private pDateSpanHours As Single
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get BeginString() As String
+    BeginString = pBeginStr
+End Property
+
+Public Property Get EndString() As String
+    EndString = pEndStr
+End Property
+
+Public Property Get DateBegin() As Date
+    DateBegin = pDateBegin
+End Property
+
+Public Property Get DateEnd() As Date
+    DateEnd = pDateEnd
+End Property
+
+Public Property Get DateSpanHours() As Long
+    DateSpanHours = pDateSpanHours
+End Property
+
+Public Function Init(LitGroup As String) As CTimeGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^\d{4}/\d{4}$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    pBeginStr = Left(LitGroup, 4)
+    If TestTooManyDays(Left(pBeginStr, 2)) Or TestTooManyHours(Right(pBeginStr, 2)) Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " BeginTimeBad")
+        Exit Function
+    End If
+    pDateBegin = BuildDTG(Left(pBeginStr, 2), Right(pBeginStr, 2))
+    pEndStr = Right(LitGroup, 4)
+    If TestTooManyDays(Left(pEndStr, 2)) Or TestTooManyHours(Right(pEndStr, 2), True) _
+      Or Right(pEndStr, 2) = "00" Then 'end times can have xx24 but not xx00
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " EndTimeBad")
+        Exit Function
+    End If
+    pDateEnd = BuildDTG(Left(pEndStr, 2), Right(pEndStr, 2))
+    If pDateBegin > pDateEnd Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " BeginLaterThanEnd")
+        Exit Function
+    ElseIf pDateBegin = pDateEnd Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " BeginEndSame")
+        Exit Function
+    End If
+    pDateSpanHours = Round((pDateEnd - pDateBegin) * 24)
+End Function
