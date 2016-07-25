@@ -1,0 +1,100 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pIceValue As String
+Private pBase As Long
+Private pThickness As Byte
+Private pTop As Long
+Private pIceIntensity As String
+Private pIceType As String
+Private pLayerPosition As Byte
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get IceValue() As String
+    IceValue = pIceValue
+End Property
+
+Public Property Get Base() As Long
+    Base = pBase
+End Property
+
+Public Property Get Thickness() As Byte
+    Thickness = pThickness
+End Property
+
+Public Property Get Top() As Long
+    Top = pTop
+End Property
+
+Public Property Get IceIntensity() As String
+    IceIntensity = pIceIntensity
+End Property
+
+Public Property Get IceType() As String
+    IceType = pIceType
+End Property
+
+Public Property Get LayerPosition() As Byte
+    LayerPosition = pLayerPosition
+End Property
+
+Public Function Init(LitGroup As String, Optional Position As Byte = 0) As CIcingGroup
+    If Not RXBool(LitGroup, "^6\d{5}$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    pLayerPosition = Position
+    pIceValue = Mid(LitGroup, 2, 1)
+    pBase = CLng(Mid(LitGroup, 3, 3))
+    pThickness = Right(LitGroup, 1)
+    If pThickness = 0 Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " ZeroThick")
+    End If
+    pTop = CLng(pBase + (pThickness * 10))
+    pIceIntensity = GetIceIntensity(pIceValue)
+    pIceType = GetIceType(pIceValue)
+End Function
+
+Private Function GetIceIntensity(IceValue As String) As String
+    Select Case IceValue
+        Case 0
+            GetIceIntensity = "TRACE"
+        Case 1, 2, 3
+            GetIceIntensity = "LIGHT"
+        Case 4, 5, 6
+            GetIceIntensity = "MODERATE"
+        Case 7, 8, 9
+            GetIceIntensity = "SEVERE"
+    End Select
+End Function
+
+Private Function GetIceType(IceValue As String) As String
+    Select Case IceValue
+        Case 0
+            GetIceType = "N/A"
+        Case 1, 4, 7
+            GetIceType = "MIXED"
+        Case 2, 5, 8
+            GetIceType = "RIME"
+        Case 3, 6, 9
+            GetIceType = "CLEAR"
+    End Select
+End Function
