@@ -1,0 +1,432 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pFullArray As Variant
+Private pPriorityArray As Variant
+Private pPriorityStr As String
+Private pLineType As String
+Private pBeginDTG As Date
+Private pEndDTG As Date
+Private pKeyGroups As Collection
+Private pWxGroups As Collection
+Private pSkyGroups As Collection
+Private pIcgGroups As Collection
+Private pTurbGroups As Collection
+Private pRmkStr As String
+Private pDutyRmkStr As String
+Private pPredLine As Byte
+Private pThisLine As Byte
+
+Private ptParseBegin As Byte
+Private ptIter As Byte
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get FullArray() As Variant
+    FullArray = pFullArray
+End Property
+
+Public Property Get PriorityArray() As Variant
+    PriorityArray = pPriorityArray
+End Property
+
+Public Property Get PriorityStr() As String
+    PriorityStr = pPriorityStr
+End Property
+
+Public Property Get LineType() As String
+    LineType = pLineType
+End Property
+
+Public Property Get Begins() As Date
+    Begins = pBeginDTG
+End Property
+
+Public Property Get Ends() As Date
+    Ends = pEndDTG
+End Property
+
+Public Property Get WeatherGroups() As Collection
+    Set WeatherGroups = pWxGroups
+End Property
+Public Property Get WeatherString() As String
+    If pWxGroups.Count = 0 Then
+        WeatherString = ""
+    Else
+        WeatherString = ""
+        For ptIter = 1 To pWxGroups.Count
+            WeatherString = WeatherString & pWxGroups(ptIter).LiteralGroup & " "
+        Next ptIter
+        WeatherString = Trim(WeatherString)
+    End If
+End Property
+
+Public Property Get SkyGroups() As Collection
+    Set SkyGroups = pSkyGroups
+End Property
+Public Property Get SkyString() As String
+    If pSkyGroups.Count = 0 Then
+        SkyString = ""
+    Else
+        SkyString = ""
+        For ptIter = 1 To pSkyGroups.Count
+            SkyString = SkyString & pSkyGroups(ptIter).LiteralGroup & " "
+        Next ptIter
+        SkyString = Trim(SkyString)
+    End If
+End Property
+
+Public Property Get IcingGroups() As Collection
+    Set IcingGroups = pIcgGroups
+End Property
+Public Property Get IcingString() As String
+    If pIcgGroups.Count = 0 Then
+        IcingString = ""
+    Else
+        IcingString = ""
+        For ptIter = 1 To pIcgGroups.Count
+            IcingString = IcingString & pIcgGroups(ptIter).LiteralGroup & " "
+        Next ptIter
+        IcingString = Trim(IcingString)
+    End If
+End Property
+
+Public Property Get TurbGroups() As Collection
+    Set TurbGroups = pTurbGroups
+End Property
+Public Property Get TurbString() As String
+    If pTurbGroups.Count = 0 Then
+        TurbString = ""
+    Else
+        TurbString = ""
+        For ptIter = 1 To pTurbGroups.Count
+            TurbString = TurbString & pTurbGroups(ptIter).LiteralGroup & " "
+        Next ptIter
+        TurbString = Trim(TurbString)
+    End If
+End Property
+
+Public Property Get Remarks() As String
+    Remarks = pRmkStr
+End Property
+
+Public Property Get DutyRemarks() As String
+    DutyRemarks = pDutyRmkStr
+End Property
+
+Public Property Get PredLine() As Byte
+    PredLine = pPredLine
+End Property
+Public Property Let PredLine(LNum As Byte)
+    pPredLine = LNum
+End Property
+
+Public Property Get LineNumber() As Byte
+    LineNumber = pThisLine
+End Property
+Public Property Let LineNumber(LNum As Byte)
+    pThisLine = LNum
+End Property
+
+'the remaining property get statements allow clean access to single groups
+Public Property Get From() As CFromGroup
+    If IsMember(pKeyGroups, "from") Then
+        Set From = pKeyGroups("from")
+    Else
+        Set From = Nothing
+    End If
+End Property
+Public Property Get ICAO() As CStringObj
+    If IsMember(pKeyGroups, "icao") Then
+        Set ICAO = pKeyGroups("icao")
+    Else
+        Set ICAO = Nothing
+    End If
+End Property
+Public Property Get Issue() As CIssueGroup
+    If IsMember(pKeyGroups, "issue") Then
+        Set Issue = pKeyGroups("issue")
+    Else
+        Set Issue = Nothing
+    End If
+End Property
+Public Property Get Time() As CTimeGroup
+    If IsMember(pKeyGroups, "time") Then
+        Set Time = pKeyGroups("time")
+    Else
+        Set Time = Nothing
+    End If
+End Property
+Public Property Get Wind() As CWindGroup
+    If IsMember(pKeyGroups, "wind") Then
+        Set Wind = pKeyGroups("wind")
+    Else
+        Set Wind = Nothing
+    End If
+End Property
+Public Property Get Vis() As CVisGroup
+    If IsMember(pKeyGroups, "vis") Then
+        Set Vis = pKeyGroups("vis")
+    Else
+        Set Vis = Nothing
+    End If
+End Property
+Public Property Get Ash() As CVolcAshGroup
+    If IsMember(pKeyGroups, "ash") Then
+        Set Ash = pKeyGroups("ash")
+    Else
+        Set Ash = Nothing
+    End If
+End Property
+Public Property Get Shear() As CShearGroup
+    If IsMember(pKeyGroups, "shear") Then
+        Set Shear = pKeyGroups("shear")
+    Else
+        Set Shear = Nothing
+    End If
+End Property
+Public Property Get AlStg() As CAlStgGroup
+    If IsMember(pKeyGroups, "alt") Then
+        Set AlStg = pKeyGroups("alt")
+    Else
+        Set AlStg = Nothing
+    End If
+End Property
+Public Property Get TempMax() As CTempGroup
+    If IsMember(pKeyGroups, "tempmax") Then
+        Set TempMax = pKeyGroups("tempmax")
+    Else
+        Set TempMax = Nothing
+    End If
+End Property
+Public Property Get TempMin() As CTempGroup
+    If IsMember(pKeyGroups, "tempmin") Then
+        Set TempMin = pKeyGroups("tempmin")
+    Else
+        Set TempMin = Nothing
+    End If
+End Property
+
+Public Function Init(LineString As String) As CTafLine
+    If InStr(1, LineString, "  ") Then
+        errObj.TafError "SPACES", "Doublespace in line (marked with !!):" & vbNewLine & _
+          Left(LineString, InStr(1, LineString, "  ")) & "!!" & Mid(LineString, InStr(1, LineString, "  ") + 1), True
+        Exit Function
+    End If
+    Dim objInit As Object
+    Set pKeyGroups = New Collection
+    Set pWxGroups = New Collection
+    Set pSkyGroups = New Collection
+    Set pIcgGroups = New Collection
+    Set pTurbGroups = New Collection
+    pLiteralGroup = Trim(LineString)
+    pFullArray = Split(pLiteralGroup, " ")
+    pLineType = TestLineType(CStr(pFullArray(0)))
+    If pLineType = "" Then
+        If RXBool(pFullArray(0), "^[0-9A-Z]{4}$") And pFullArray(1) = "TAF" Then
+            pLineType = "TAF2" 'ICAO-first
+        Else
+            errObj.TafError "INTERR", "Failed to identify TAF line header", True
+            Exit Function
+        End If
+    End If
+    If pLineType = "FM" Then
+        Set objInit = New CFromGroup
+        objInit.Init CStr(pFullArray(0))
+        pBeginDTG = objInit.RealDate
+        pEndDTG = objInit.RealDate
+        Set objInit = Nothing
+        ptParseBegin = 1
+    ElseIf pLineType = "TAF" Then
+        If Not RXBool(pLiteralGroup, "\d{6}Z") Then
+            errObj.TafError "HEADER", "TAF header missing issue timestamp in DDHHMMZ format", True
+            Exit Function
+        End If
+        If CStr(pFullArray(1)) = "AMD" Or CStr(pFullArray(1)) = "COR" Then
+            pLineType = "TAF-" & CStr(pFullArray(1)) 'gives "TAF-AMD" or "TAF-COR"
+            If Not HeadParses(CStr(pFullArray(2)), CStr(pFullArray(3)), CStr(pFullArray(4))) Then
+                errObj.TafError "HEADER", "TAF header elements up to time group not detected - recheck for TAF [AMD/COR] ICAO DDHHMMZ DDHH/DDHH", True
+                Exit Function
+            End If
+            ptParseBegin = 5
+        Else
+            If Not HeadParses(CStr(pFullArray(1)), CStr(pFullArray(2)), CStr(pFullArray(3))) Then
+                errObj.TafError "HEADER", "TAF header elements up to time group not detected - recheck for TAF [AMD/COR] ICAO DDHHMMZ DDHH/DDHH", True
+                Exit Function
+            End If
+            ptParseBegin = 4
+        End If
+        Set objInit = New CTimeGroup
+        objInit.Init CStr(pFullArray(ptParseBegin - 1))
+        pBeginDTG = objInit.DateBegin
+        pEndDTG = objInit.DateEnd
+        Set objInit = Nothing
+    ElseIf pLineType = "TAF2" Then
+        If Not RXBool(pLiteralGroup, "\d{6}Z") Then
+            errObj.TafError "HEADER", "TAF header missing issue stamp in DDHHMMZ format", True
+            Exit Function
+        End If
+        If CStr(pFullArray(2)) = "AMD" Or CStr(pFullArray(2)) = "COR" Then
+            pLineType = "TAF2-" & CStr(pFullArray(2)) 'gives "TAF2-AMD" or "TAF2-COR"
+            If Not HeadParses(CStr(pFullArray(0)), CStr(pFullArray(3)), CStr(pFullArray(4))) Then
+                errObj.TafError "HEADER", "TAF header elements up to time group not detected - recheck for ICAO TAF [AMD/COR] DDHHMMZ DDHH/DDHH", True
+                Exit Function
+            End If
+            ptParseBegin = 5
+        Else
+            If Not HeadParses(CStr(pFullArray(0)), CStr(pFullArray(2)), CStr(pFullArray(3))) Then
+                errObj.TafError "HEADER", "TAF header elements up to time group not detected - recheck for ICAO TAF [AMD/COR] DDHHMMZ DDHH/DDHH", True
+                Exit Function
+            End If
+            ptParseBegin = 4
+        End If
+        Set objInit = New CTimeGroup
+        objInit.Init CStr(pFullArray(ptParseBegin - 1))
+        pBeginDTG = objInit.DateBegin
+        pEndDTG = objInit.DateEnd
+        Set objInit = Nothing
+    Else 'pLineType "BECMG" or "TEMPO"; handled the same
+        ptParseBegin = 2
+        Set objInit = New CTimeGroup
+        objInit.Init CStr(pFullArray(ptParseBegin - 1))
+        pBeginDTG = objInit.DateBegin
+        pEndDTG = objInit.DateEnd
+        Set objInit = Nothing
+    End If
+    ReDim pPriorityArray(LBound(pFullArray) To UBound(pFullArray))
+    pPriorityArray(0) = PriorityParse(pFullArray(0), 0)
+    For ptIter = 1 To UBound(pFullArray)
+        pPriorityArray(ptIter) = PriorityParse(pFullArray(ptIter), pPriorityArray(ptIter - 1))
+    Next ptIter
+'populate collections and remarks
+    pRmkStr = ""
+    pDutyRmkStr = ""
+    For ptIter = 0 To UBound(pFullArray)
+        Set objInit = Nothing
+        If pPriorityArray(ptIter) = 1 And Left(CStr(pFullArray(ptIter)), 2) = "FM" Then
+            Set objInit = New CFromGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "from"
+        ElseIf pPriorityArray(ptIter) = 3 Then
+            Set objInit = New CStringObj
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "icao"
+        ElseIf pPriorityArray(ptIter) = 4 Then
+            Set objInit = New CIssueGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "issue"
+        ElseIf pPriorityArray(ptIter) = 5 Then
+            Set objInit = New CTimeGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "time"
+        ElseIf pPriorityArray(ptIter) = 6 Then
+            Set objInit = New CWindGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "wind"
+        ElseIf pPriorityArray(ptIter) = 7 Then
+            Set objInit = New CVisGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "vis"
+        ElseIf pPriorityArray(ptIter) = 8 Then 'multigroup, no key
+            Set objInit = New CWeatherGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pWxGroups.Add objInit
+        ElseIf pPriorityArray(ptIter) = 9 Then 'multigroup, no key
+            Set objInit = New CSkyGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pSkyGroups.Add objInit
+        ElseIf pPriorityArray(ptIter) = 10 Then
+            Set objInit = New CVolcAshGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "ash"
+        ElseIf pPriorityArray(ptIter) = 11 Then
+            Set objInit = New CShearGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "shear"
+        ElseIf pPriorityArray(ptIter) = 12 Then 'multigroup, no key
+            Set objInit = New CIcingGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pIcgGroups.Add objInit
+        ElseIf pPriorityArray(ptIter) = 13 Then 'multigroup, no key
+            Set objInit = New CTurbGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pTurbGroups.Add objInit
+        ElseIf pPriorityArray(ptIter) = 14 Then
+            Set objInit = New CAlStgGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "alt"
+        ElseIf pPriorityArray(ptIter) = 99 Or pPriorityArray(ptIter) = 101 Then
+            pRmkStr = pRmkStr & CStr(pFullArray(ptIter)) & " "
+        ElseIf pPriorityArray(ptIter) = 100 And Left(CStr(pFullArray(ptIter)), 2) = "TX" Then
+            Set objInit = New CTempGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "tempmax"
+        ElseIf pPriorityArray(ptIter) = 100 And Left(CStr(pFullArray(ptIter)), 2) = "TN" Then
+            Set objInit = New CTempGroup
+            objInit.Init CStr(pFullArray(ptIter))
+            pKeyGroups.Add objInit, "tempmin"
+        ElseIf pPriorityArray(ptIter) = 102 Then
+            pDutyRmkStr = pDutyRmkStr & CStr(pFullArray(ptIter)) & " "
+        End If
+        If Not objInit Is Nothing Then
+            If objInit.HasErrors Then
+                errObj.TafError "MECH-GROUP", "Mechanical error(s) indicated with '" & objInit.LiteralGroup & "': " & objInit.ErrorText, True
+                Exit Function
+            End If
+        End If
+    Next ptIter
+    Set objInit = Nothing
+    pRmkStr = Trim(pRmkStr)
+    'check for stupid old-style AMDs and fail on it
+    If RXBool(pRmkStr, "AMD\s\d{6}") Then
+        errObj.TafError "OLD-AMD", "AMD and timestamp no longer an appropriate remark", True
+        Exit Function
+    ElseIf RXBool(pRmkStr, "COR\s\d{6}") Then
+        errObj.TafError "OLD-COR", "COR with timestamp no longer an appropriate remark", True
+        Exit Function
+    End If
+    pDutyRmkStr = Trim(pDutyRmkStr)
+    pPriorityStr = Join(pPriorityArray, ", ")
+    For ptIter = 1 To UBound(pPriorityArray)
+        If pPriorityArray(ptIter) < pPriorityArray(ptIter - 1) Then
+            If pPriorityArray(ptIter) = 1 And pPriorityArray(ptIter - 1) = 3 Then 'ICAO first then TAF
+            Else
+                errObj.TafError "ORDER-ENTRY", "Order of Entry error between '" & pFullArray(ptIter - 1) & "' and '" & _
+                  pFullArray(ptIter) & "'" & vbNewLine & "Debug: " & pPriorityStr, True
+                Exit Function
+            End If
+        End If
+    Next ptIter
+    If IsMember(pKeyGroups, "tempmax") And IsMember(pKeyGroups, "tempmin") Then
+        If InStr(1, LineString, pKeyGroups("tempmax").LiteralGroup) > InStr(1, LineString, pKeyGroups("tempmin").LiteralGroup) Then
+            errObj.TafError "TEMP", "Min and max temperatures in reverse order (Line " & taf.NumberOfLines & ")", False
+        End If
+    End If
+    Set Init = Me
+End Function
+
+Private Function TestLineType(FirstGroup As String) As String
+    If FirstGroup = "TAF" Then
+        TestLineType = "TAF"
+    ElseIf FirstGroup = "BECMG" Then
+        TestLineType = "BECMG"
+    ElseIf FirstGroup = "TEMPO" Then
+        TestLineType = "TEMPO"
+    ElseIf RXBool(FirstGroup, "FM\d{6}") Then
+        TestLineType = "FM"
+    Else
+        TestLineType = ""
+    End If
+End Function
+
+Private Function HeadParses(ICAOGroup As String, WMOGroup As String, DTGGroup As String) As Boolean
+    If RXBool(ICAOGroup, "^[0-9A-Z]{4}$") And RXBool(WMOGroup, "\d{6}Z") And RXBool(DTGGroup, "\d{4}/\d{4}") Then
+        HeadParses = True
+    Else
+        HeadParses = False
+    End If
+End Function
