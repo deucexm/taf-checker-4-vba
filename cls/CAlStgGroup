@@ -1,0 +1,64 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pAltimeterStr As String
+Private pAltimeter As Long
+Private pStyle As String
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get AltimeterStr() As String
+    AltimeterStr = pAltimeterStr
+End Property
+
+Public Property Get Altimeter() As Long
+    Altimeter = pAltimeter
+End Property
+
+Public Property Get Style() As String
+    Style = pStyle
+End Property
+
+Public Function Init(LitGroup As String) As CAlStgGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^QNH\d{4}INS$|^[AQ]\d{4}$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    If Left(pLiteralGroup, 3) = "QNH" Then
+        pAltimeterStr = Mid(pLiteralGroup, 4, 4)
+        pStyle = "TAF"
+    Else
+        pAltimeterStr = Mid(pLiteralGroup, 2, 4)
+        pStyle = "OB"
+    End If
+    If pStyle = "TAF" Then
+        pAltimeter = CLng(pAltimeterStr)
+    ElseIf pStyle = "OB" Then
+        If Left(pLiteralGroup, 1) = "A" And TestForLeadingZero(pAltimeterStr) Then
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " AlStgLeadingZero")
+        End If
+        If Left(pLiteralGroup, 1) = "Q" Then 'needs conversion from mB
+            pAltimeter = CLng(CDbl(pAltimeterStr) * 100 * 0.0295301) 'this will give Q1013 = 2991, Q1012 = 2988 forex
+        Else
+            pAltimeter = CLng(pAltimeterStr)
+        End If
+    End If
+End Function
