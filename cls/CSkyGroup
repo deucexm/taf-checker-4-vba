@@ -1,0 +1,86 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pBaseStr As String
+Private pBase As Long
+Private pIsCeiling As Boolean
+Private pIsSoloGroup As Boolean
+Private pTypeRemark As String
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get BaseStr() As String
+    BaseStr = pBaseStr
+End Property
+
+Public Property Get Base() As Long
+    Base = pBase
+End Property
+
+Public Property Get IsCeiling() As Boolean
+    IsCeiling = pIsCeiling
+End Property
+
+Public Property Get IsSoloGroup() As Boolean
+    IsSoloGroup = pIsSoloGroup
+End Property
+
+Public Property Get TypeRemark() As String
+    TypeRemark = pTypeRemark
+End Property
+
+Public Function Init(LitGroup As String) As CSkyGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^(SKC|CLR)$|^(FEW|SCT|BKN|OVC)\d{3}(CB|TCU)?$|^VV\d{3}$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    If pLiteralGroup = "SKC" Or pLiteralGroup = "CLR" Then 'obviously "CLR" is not OK for TAFs
+        pBaseStr = 999
+        pBase = CLng(pBaseStr)
+        pIsCeiling = False
+        pIsSoloGroup = True
+        pTypeRemark = ""
+        Exit Function
+    ElseIf Left(pLiteralGroup, 2) = "VV" Then
+        pBaseStr = Right(pLiteralGroup, 3)
+        pBase = CLng(pBaseStr)
+        pIsCeiling = True
+        pIsSoloGroup = True
+        pTypeRemark = ""
+    Else
+        pBaseStr = Mid(pLiteralGroup, 4, 3)
+        pBase = CLng(pBaseStr)
+        pIsSoloGroup = False
+        If RXBool(pLiteralGroup, "^(FEW|SCT|BKN000)") Then
+            pIsCeiling = False
+        Else
+            pIsCeiling = True
+        End If
+        If Len(pLiteralGroup) > 6 Then
+            pTypeRemark = Mid(pLiteralGroup, 7) 'bear in mind, "TCU" is not OK for TAFs; ref. AFMAN 15-124 1.3.4.5.7
+        Else
+            pTypeRemark = ""
+        End If
+    End If
+    If TestNotReportable(pBaseStr) Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " HeightNotReportable")
+    End If
+End Function
