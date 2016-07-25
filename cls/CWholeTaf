@@ -1,0 +1,134 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pCleanedGroup As String
+Private pArrayOfLines As Variant
+Private pNumberOfLines As Byte
+Private pAMDCOR As String
+Private pBeginDTG As Date
+Private pEndDTG As Date
+Private pIssueDTG As Date
+Private pICAO As String
+Private pIssueStamp As String
+Private pTafLines As New Collection
+
+Private ptTempLine As CTafLine
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get CleanedGroup() As String
+    CleanedGroup = pCleanedGroup
+End Property
+
+Public Property Get ArrayOfLines() As Variant
+    ArrayOfLines = pArrayOfLines
+End Property
+
+Public Property Get NumberOfLines() As Byte
+    NumberOfLines = pNumberOfLines
+End Property
+
+Public Property Get AMDCOR() As String
+    AMDCOR = pAMDCOR
+End Property
+
+Public Property Get Begins() As Date
+    Begins = pBeginDTG
+End Property
+
+Public Property Get Ends() As Date
+    Ends = pEndDTG
+End Property
+
+Public Property Get Issued() As Date
+    Issued = pIssueDTG
+End Property
+
+Public Property Get ICAO() As String
+    ICAO = pICAO
+End Property
+
+Public Property Get IssueStamp() As String
+    IssueStamp = pIssueStamp
+End Property
+
+Public Property Get Line(ByVal LNum As Byte)
+    Set Line = pTafLines(LNum)
+End Property
+
+Public Function Init(ByVal TAFCellVal As String) As CWholeTaf
+    pLiteralGroup = TAFCellVal
+    pCleanedGroup = Reform(pLiteralGroup)
+    If RXBool(pCleanedGroup, "[^A-Z0-9\-\s/;\+]") Then 'anything not -;/+ spaces and capital alphanumerics
+        errObj.TafError "BADCHARS", "Illegal characters found in TAF", True
+        Exit Function
+    End If
+    pArrayOfLines = SplitLines(pCleanedGroup)
+    pNumberOfLines = UBound(pArrayOfLines) + 1
+    pAMDCOR = TestAMDCOR(pArrayOfLines(0))
+    Dim bIter As Byte
+    For bIter = LBound(pArrayOfLines) To UBound(pArrayOfLines)
+        Set ptTempLine = New CTafLine
+        ptTempLine.Init (pArrayOfLines(bIter))
+        pTafLines.Add ptTempLine
+    Next
+    pICAO = pTafLines(1).ICAO.LiteralGroup
+    pBeginDTG = pTafLines(1).Time.DateBegin
+    pEndDTG = pTafLines(1).Time.DateEnd
+    pIssueStamp = pTafLines(1).Issue.LiteralGroup
+    pIssueDTG = pTafLines(1).Issue.RealDate
+    Set Init = Me
+End Function
+
+Private Function Reform(ByVal LitGroup As String) As String
+    Dim arr As Variant
+    Dim sWork As String
+    Dim p As Byte
+    arr = Split(LitGroup, Chr(10)) 'split on actual line breaks
+    For p = LBound(arr) To UBound(arr)
+        arr(p) = Trim(arr(p)) 'get rid of trailing/leading spaces
+    Next
+    sWork = Join(arr, " ") 'full TAF with single space in place of break+spaces
+    'double spaces within lines are preserved this way
+    sWork = BetterTrim(sWork) 'in case there are extra spaces/breaks at end
+    If Right(sWork, 1) = "=" Or Right(sWork, 1) = ";" Then
+        sWork = TakeOff(sWork, "right", 1)
+    End If
+    Reform = sWork
+End Function
+
+Private Function SplitLines(ByVal CleanTaf As String) As Variant
+    Dim WorkTaf As String: WorkTaf = CleanTaf
+    Dim p As Byte
+    Dim arr As Variant
+    Dim Matches As Object
+    Set Matches = RXMatch(WorkTaf, "(BECMG)|(TEMPO)|(FM\d{6})", True)
+    If Matches.Count = 0 Then
+        arr = Array(WorkTaf)
+    Else
+        For p = 0 To Matches.Count - 1
+            Mid(WorkTaf, Matches.item(p).FirstIndex, 1) = "&"
+        Next
+        arr = Split(WorkTaf, "&")
+    End If
+    For p = LBound(arr) To UBound(arr)
+        arr(p) = Trim(arr(p))
+    Next
+    SplitLines = arr
+End Function
+
+Private Function TestAMDCOR(ByVal FirstLine As String) As String
+    Dim LineArray As Variant
+    LineArray = Split(FirstLine, " ")
+    If LineArray(1) = "AMD" Or LineArray(2) = "AMD" Then
+        TestAMDCOR = "AMD"
+    ElseIf LineArray(1) = "COR" Or LineArray(2) = "COR" Then
+        TestAMDCOR = "COR"
+    Else
+        TestAMDCOR = ""
+    End If
+End Function
