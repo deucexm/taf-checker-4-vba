@@ -1,0 +1,248 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pHasIntensity As Boolean
+Private pWeatherType As String
+Private pWeatherPriority As Byte
+Private pRequiresLowerVis As Boolean
+Private pRequiresSpecificVis As Boolean
+Private pSeparateParts As Byte
+
+Private ptWorkString As String
+Private ptArrayParts As Variant
+Private ptArrayTypes As Variant
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get HasIntensity() As Boolean
+    HasIntensity = pHasIntensity
+End Property
+
+Public Property Get WeatherType() As String
+    WeatherType = pWeatherType
+End Property
+
+Public Property Get WeatherPriority() As Byte
+    WeatherPriority = pWeatherPriority
+End Property
+
+Public Property Get RequiresLowerVis() As Boolean
+    RequiresLowerVis = pRequiresLowerVis
+End Property
+
+Public Property Get RequiresSpecificVis() As Boolean
+    RequiresSpecificVis = pRequiresSpecificVis
+End Property
+
+Public Property Get SeparateParts() As Byte
+    SeparateParts = pSeparateParts
+End Property
+
+Public Function Init(LitGroup As String) As CWeatherGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^NSW$|SH$|TS$|DZ$|RA$|SN$|SG$|IC$|PL$|GR$|GS$|BR$|FG$|FU$|^VA$|DU$|SA$|HZ$|PY$|PO$|^SQ$|FC$|SS$|DS$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    ElseIf RXBool(LitGroup, "^(TEMPO|AMDS)$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " NotWeather")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    If Len(pLiteralGroup) > 7 Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " TooLong")
+        Exit Function
+    End If
+    If pLiteralGroup = "NSW" Then 'set props and exit
+        pHasErrors = False
+        pHasIntensity = False
+        pWeatherType = GetType(pLiteralGroup)
+        pWeatherPriority = 0
+        pRequiresLowerVis = False
+        pRequiresSpecificVis = False
+        Exit Function
+    End If
+    If RXBool(pLiteralGroup, "^(\+|\-)") Then
+        pHasIntensity = True
+        If TestIntensity(pLiteralGroup) Then
+            pHasErrors = True
+            Exit Function
+        End If
+        ptWorkString = Mid(pLiteralGroup, 2)
+    Else
+        pHasIntensity = False
+        ptWorkString = pLiteralGroup
+    End If
+    If Len(ptWorkString) Mod 2 <> 0 Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " MalformedLength")
+        Exit Function
+    Else
+        ReDim ptArrayParts(0 To (Len(ptWorkString) / 2) - 1)
+        ReDim ptArrayTypes(0 To (Len(ptWorkString) / 2) - 1)
+        pSeparateParts = UBound(ptArrayParts) + 1
+        For i = LBound(ptArrayParts) To UBound(ptArrayParts)
+            ptArrayParts(i) = Mid(ptWorkString, (i * 2) + 1, 2)
+            If TestAllowable(CStr(ptArrayParts(i))) Then
+                pHasErrors = True
+                pErrorText = Trim(pErrorText & " InvalidWeatherType-'" & CStr(ptArrayParts(i)) & "'")
+                Exit Function
+            End If
+            Select Case CStr(ptArrayParts(i))
+                Case "VC"
+                    ptArrayTypes(i) = 1 'proximity
+                Case "MI", "PR", "BC", "DR", "BL", "SH", "TS", "FZ"
+                    ptArrayTypes(i) = 2 'descriptor
+                Case "DZ", "RA", "SN", "SG", "IC", "PL", "GR", "GS"
+                    ptArrayTypes(i) = 3 'precipitation
+                Case "BR", "FG", "FU", "VA", "DU", "SA", "HZ", "PY"
+                    ptArrayTypes(i) = 4 'obscuration
+                Case "PO", "SQ", "FC", "SS", "DS"
+                    ptArrayTypes(i) = 5 'other
+            End Select
+            If i = 0 Then 'first group
+            Else
+                If ptArrayTypes(i) < ptArrayTypes(i - 1) Then
+                    pHasErrors = True
+                    pErrorText = Trim(pErrorText & " DisorderedWeather")
+                    Exit Function
+                ElseIf ptArrayParts(i) = ptArrayParts(i - 1) Then
+                    pHasErrors = True
+                    pErrorText = Trim(pErrorText & " DuplicateWeather")
+                    Exit Function
+                End If
+            End If
+            If InStr(1, Join(ptArrayTypes), "3") And (InStr(1, Join(ptArrayTypes), "4") Or InStr(1, Join(ptArrayTypes), "5")) _
+              Or (InStr(1, Join(ptArrayTypes), "4") And InStr(1, Join(ptArrayTypes), "5")) Then
+                pHasErrors = True
+                pErrorText = Trim(pErrorText & " MixedPhenomena")
+                Exit Function
+            End If
+        Next i
+    End If
+    If TestMiscValidity(pLiteralGroup) Then
+        pHasErrors = True
+        Exit Function
+    End If
+    pWeatherPriority = GetPriority(pLiteralGroup)
+End Function
+
+Private Function TestIntensity(InputGroup As String) As Boolean
+'only run if pHasIntensity = True
+    TestIntensity = False
+'FC test - AFMAN 15-124 1.3.4.4.1.2
+    If InStr(1, InputGroup, "FC") And Not RXBool(InputGroup, "^\+?FC$") Then
+        TestIntensity = True
+        pErrorText = Trim(pErrorText & " MalformedFC")
+        Exit Function
+'VC test - AFMAN 15-124 1.3.4.4.2.2 / AFMAN 15-111 13.8.3.1.2
+    ElseIf InStr(1, InputGroup, "VC") Then
+        TestIntensity = True
+        pErrorText = Trim(pErrorText & " IntensityVC")
+        Exit Function
+'Intensity test
+    Else
+        If Not RXBool(InputGroup, "^(\+|\-)(SH|TS|DZ|RA|SN|SG|PL|FZ(?!FG))|^\+(FC|SS|DS)") Then
+            TestIntensity = True
+            pErrorText = Trim(pErrorText & " InvalidIntensity")
+            Exit Function
+        End If
+    End If
+End Function
+
+Private Function TestAllowable(InputGroup As String) As Boolean
+    If RXBool(InputGroup, "^(VC|MI|PR|BC|DR|BL|SH|TS|FZ|DZ|RA|SN|SG|IC|PL|GR|GS|BR|FG|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)$") Then
+        TestAllowable = False 'no errors
+    Else
+        TestAllowable = True
+    End If
+End Function
+
+Private Function TestMiscValidity(InputGroup As String) As Boolean
+    TestMiscValidity = False
+'VC tests - AFMAN 15-124 1.3.4.4.2.2 / AFMAN 15-111 13.8.3.1.2
+    If InStr(1, InputGroup, "VC") And Not RXBool(InputGroup, "^VC(TS|SH|FG|BLSN|BLDU|BLSA|PO|SS|DS)$") Then
+        TestMiscValidity = True
+        pErrorText = Trim(pErrorText & " InvalidVC")
+        Exit Function
+    End If
+'Descriptor tests
+    If RXBool(Left(InputGroup, 2), "^(MI|PR|BC)$") And Not RXBool(InputGroup, "^(MI|PR|BC)FG$") Then
+        TestMiscValidity = True
+        pErrorText = Trim(pErrorText & " NonFogUsingFogDescriptor")
+        Exit Function
+    End If
+End Function
+
+Private Function GetType(InputGroup As String) As String
+    Dim sGroup As String, sWork As String, sType As String, aWhole As Variant
+    sGroup = InputGroup
+    Select Case sGroup
+        Case "NSW"
+            GetType = "No Significant Weather"
+        Case "FC"
+            GetType = "Funnel Cloud"
+        Case "+FC"
+            GetType = "Tornado/Waterspout"
+        Case "VA"
+            GetType = "Volcanic Ash"
+        Case "BR"
+            GetType = "Mist"
+        Case "SQ"
+            GetType = "Squall"
+        Case Else
+            GetType = ""
+    End Select
+    If GetType <> "" Then
+        Exit Function
+    End If
+'intensity
+    Select Case Left(sGroup, 1)
+        Case "+"
+            sType = "Heavy"
+            sGroup = Mid(sGroup, 2)
+        Case "-"
+            sType = "Light"
+            sGroup = Mid(sGroup, 2)
+    End Select
+End Function
+
+Private Function GetPriority(InputGroup As String) As Byte
+    If RXBool(InputGroup, "VC") Then
+        GetPriority = 9 'max
+        Exit Function
+    End If
+    Select Case Right(InputGroup, 2)
+        Case "FC"
+            GetPriority = 1
+        Case "TS"
+            GetPriority = 2
+        Case "DZ", "RA", "SN", "SG", "IC", "PL", "GS", "GR"
+            GetPriority = 3
+            If Len(InputGroup) >= 4 Then
+                If Right(InputGroup, 4) = "BLSN" Or Right(InputGroup, 4) = "DRSN" Then
+                    GetPriority = 4
+                End If
+            End If
+        Case "BR", "FG", "FU", "VA", "DU", "SA", "HZ", "PY"
+            GetPriority = 5
+        Case "PO", "SQ", "SS", "DS"
+            GetPriority = 6
+    End Select
+End Function
