@@ -1,0 +1,123 @@
+'3.8d10
+
+Option Explicit
+
+Private pHasErrors As Boolean
+Private pHasFatal As Boolean
+Private pTafErrs As Collection
+Private pTafErrCls As Collection
+Private pTafErrCount As Long
+Private pCatErrs As Collection
+Private pCatErrCls As Collection
+Private pCatErrCount As Long
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get HasFatal() As Boolean
+    HasFatal = pHasFatal
+End Property
+
+Public Property Get TafErrors() As Collection
+    Set TafErrors = pTafErrs
+End Property
+
+Public Property Get TafErrClasses() As Collection
+    Set TafErrClasses = pTafErrCls
+End Property
+
+Public Property Get TafErrorCount() As Long
+    TafErrorCount = pTafErrCount
+End Property
+
+Public Property Get CatErrors() As Collection
+    Set CatErrors = pCatErrs
+End Property
+
+Public Property Get CatErrClasses() As Collection
+    Set CatErrClasses = pCatErrCls
+End Property
+
+Public Property Get CatErrorCount() As Long
+    CatErrorCount = pCatErrCount
+End Property
+
+Public Function Init() As CErrorObj
+    pHasErrors = False
+    pHasFatal = False
+    Set pTafErrs = New Collection
+    Set pTafErrCls = New Collection
+    Set pCatErrs = New Collection
+    Set pCatErrCls = New Collection
+    pTafErrCount = 0
+    pCatErrCount = 0
+End Function
+
+Public Sub TafError(eClass As String, eText As String, IsFatal As Boolean)
+    pHasErrors = True
+    pTafErrCount = pTafErrCount + 1
+    If pHasFatal Then
+        Exit Sub
+    End If
+    If IsFatal Then 'place fatal err in spot 1 and go
+        pHasFatal = True
+        Set pTafErrs = Nothing
+        Set pTafErrCls = Nothing
+        Set pTafErrs = New Collection
+        Set pTafErrCls = New Collection
+        pTafErrs.Add eText
+        pTafErrCls.Add eClass
+        If MultiCheck = False Then
+            CallBox "fatal"
+            End
+        End If
+    End If
+    If pTafErrs.Count = 0 Or pTafErrCls.Count = 0 Then
+        pTafErrs.Add eText
+        pTafErrCls.Add eClass
+    Else
+        If IsInside(pTafErrs, eText) Then
+        Else
+            pTafErrs.Add eText
+        End If
+        If IsInside(pTafErrCls, eClass) Then
+        Else
+            pTafErrCls.Add eClass
+        End If
+    End If
+End Sub
+
+Public Sub CatError(eClass As String, eText As String, IsFatal As Boolean)
+    pHasErrors = True
+    pCatErrCount = pCatErrCount + 1
+    If pHasFatal Then
+        Exit Sub
+    End If
+    If IsFatal Then 'wipe all, only keep fatal err
+        pHasFatal = True
+        Set pCatErrs = Nothing
+        Set pCatErrCls = Nothing
+        Set pCatErrs = New Collection
+        Set pCatErrCls = New Collection
+        pCatErrs.Add eText
+        pCatErrCls.Add eClass
+        If MultiCheck = False Then
+            CallBox "fatal"
+            End
+        End If
+    End If
+    If pCatErrs.Count = 0 Or pCatErrCls.Count = 0 Then
+        pCatErrs.Add eText
+        pCatErrCls.Add eClass
+    Else
+        If IsInside(pCatErrs, eText) Then
+        Else
+            pCatErrs.Add eText
+        End If
+        If IsInside(pCatErrCls, eClass) Then
+        Else
+            pCatErrCls.Add eClass
+        End If
+    End If
+End Sub
