@@ -1,0 +1,117 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pTurbValue As String
+Private pBase As Long
+Private pThickness As Byte
+Private pTop As Long
+Private pTurbIntensity As String
+Private pTurbLocation As String
+Private pTurbFrequency As String
+Private pLayerPosition As Byte
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get TurbValue() As String
+    TurbValue = pTurbValue
+End Property
+
+Public Property Get Base() As Long
+    Base = pBase
+End Property
+
+Public Property Get Thickness() As Byte
+    Thickness = pThickness
+End Property
+
+Public Property Get Top() As Long
+    Top = pTop
+End Property
+
+Public Property Get TurbIntensity() As String
+    TurbIntensity = pTurbIntensity
+End Property
+
+Public Property Get TurbLocation() As String
+    TurbLocation = pTurbLocation
+End Property
+
+Public Property Get TurbFrequency() As String
+    TurbFrequency = pTurbFrequency
+End Property
+
+Public Property Get LayerPosition() As Byte
+    LayerPosition = pLayerPosition
+End Property
+
+Public Function Init(LitGroup As String, Optional Position As Byte = 0) As CTurbGroup
+    If Not RXBool(LitGroup, "^5\d|X\d{4}$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    pLayerPosition = Position
+    pTurbValue = Mid(LitGroup, 2, 1)
+    pBase = CLng(Mid(LitGroup, 3, 3))
+    pThickness = Right(LitGroup, 1)
+    If pThickness = 0 Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " ZeroThick")
+    End If
+    pTop = CLng(pBase + (pThickness * 10))
+    pTurbIntensity = GetTurbIntensity(pTurbValue)
+    pTurbLocation = GetTurbLocation(pTurbValue)
+    pTurbFrequency = GetTurbFrequency(pTurbValue)
+End Function
+
+Private Function GetTurbIntensity(TurbValue As String) As String
+    Select Case TurbValue
+        Case 0
+            GetTurbIntensity = "NONE"
+        Case 1
+            GetTurbIntensity = "LIGHT"
+        Case 2, 3, 4, 5
+            GetTurbIntensity = "MODERATE"
+        Case 6, 7, 8, 9
+            GetTurbIntensity = "SEVERE"
+        Case "X"
+            GetTurbIntensity = "EXTREME"
+    End Select
+End Function
+
+Private Function GetTurbLocation(TurbValue As String) As String
+    Select Case TurbValue
+        Case 0, 1, "X"
+            GetTurbLocation = "N/A"
+        Case 2, 3, 6, 7
+            GetTurbLocation = "CLEAR AIR"
+        Case 4, 5, 8, 9
+            GetTurbLocation = "IN CLOUD"
+    End Select
+End Function
+
+Private Function GetTurbFrequency(TurbValue As String) As String
+    Select Case TurbValue
+        Case 0, 1, "X"
+            GetTurbFrequency = "N/A"
+        Case 2, 4, 6, 8
+            GetTurbFrequency = "OCCASIONAL"
+        Case 3, 5, 7, 9
+            GetTurbFrequency = "FREQUENT"
+    End Select
+End Function
