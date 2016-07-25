@@ -1,0 +1,54 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pBaseStr As String
+Private pBase As Long
+Private pTopStr As String
+Private pTop As Long
+Private pAtSurface As Boolean
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get AtSurface() As Boolean
+    AtSurface = pAtSurface
+End Property
+
+Public Function Init(LitGroup As String) As CVolcAshGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^VA\d{6}$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    pBaseStr = Mid(pLiteralGroup, 3, 3)
+    pBase = CLng(pBaseStr)
+    pTopStr = Right(pLiteralGroup, 3)
+    pTop = CLng(pTopStr)
+    If pBase > pTop Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " BaseAboveTop")
+    ElseIf pBase = pTop Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " BaseTopSame")
+    End If
+    If pBase = 0 Then
+        pAtSurface = True
+    Else
+        pAtSurface = False
+    End If
+End Function
