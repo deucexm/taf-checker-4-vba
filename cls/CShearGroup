@@ -1,0 +1,73 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pSpecific As Boolean
+Private pBase As Long
+Private pDirection As Long
+Private pShearSpeed As Long
+
+Private ptLiteralSpeed As String
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get Specific() As Boolean
+    Specific = pSpecific
+End Property
+
+Public Property Get Base() As Long
+    Base = pBase
+End Property
+
+Public Property Get Direction() As Long
+    Direction = pDirection
+End Property
+
+Public Property Get ShearSpeed() As Long
+    ShearSpeed = pShearSpeed
+End Property
+
+Public Function Init(LitGroup As String) As CShearGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^WSCONDS$|^WS\d{3}/\d{5,6}KT$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    If pLiteralGroup = "WSCONDS" Then
+        pSpecific = False
+        Exit Function
+    Else
+        pSpecific = True
+    End If
+    pBase = Mid(pLiteralGroup, 3, 3)
+    If pBase > 20 Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " ShearTooHigh")
+    End If
+    pDirection = Mid(pLiteralGroup, 7, 3)
+    If TestBadDirection(CStr(Mid(pLiteralGroup, 7, 3))) Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " BadDirection")
+    End If
+    ptLiteralSpeed = Mid(pLiteralGroup, 10, Len(pLiteralGroup) - 11)
+    If TestForLeadingZero(ptLiteralSpeed) Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " LeadingZeroShear")
+    End If
+    pShearSpeed = CLng(ptLiteralSpeed)
+End Function
