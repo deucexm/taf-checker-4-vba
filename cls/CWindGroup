@@ -1,0 +1,101 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pDirection As Variant
+Private pSustainedSpeed As Long
+Private pGustSpeed As Long
+Private pHasGusts As Boolean
+
+Private ptLiteralSpeed As String
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get Direction() As Variant
+    Direction = pDirection
+End Property
+
+Public Property Get SustainedSpeed() As Long
+    SustainedSpeed = pSustainedSpeed
+End Property
+
+Public Property Get GustSpeed() As Long
+    GustSpeed = pGustSpeed
+End Property
+
+Public Property Get HasGusts() As Boolean
+    HasGusts = pHasGusts
+End Property
+
+Public Function Init(LitGroup As String) As CWindGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^(VRB|\d{3})\d\d\d?(G\d\d\d?)?KT$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    If Left(pLiteralGroup, 3) <> "VRB" Then
+        If TestBadDirection(Left(pLiteralGroup, 3)) Then
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " BadDirection")
+        End If
+        If Left(pLiteralGroup, 3) = "000" And pLiteralGroup <> "00000KT" Then
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " ZeroDirectionNotCalm")
+        End If
+    End If
+    pDirection = Left(pLiteralGroup, 3)
+    pHasGusts = InStr(1, LitGroup, "G")
+    If pHasGusts Then
+        ptLiteralSpeed = Mid(pLiteralGroup, 4, InStr(1, LitGroup, "G") - 4)
+        If TestForLeadingZero(ptLiteralSpeed) Then
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " LeadingZeroSustained")
+        End If
+        pSustainedSpeed = CLng(ptLiteralSpeed)
+        ptLiteralSpeed = Mid(LitGroup, InStr(1, LitGroup, "G") + 1, (Len(LitGroup) - InStr(1, LitGroup, "G")) - 2)
+        If TestForLeadingZero(ptLiteralSpeed) Then
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " LeadingZeroGust")
+        End If
+        pGustSpeed = CLng(ptLiteralSpeed)
+        If pSustainedSpeed = pGustSpeed Then
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " SustainedEqualsGust")
+        End If
+    Else
+        ptLiteralSpeed = Mid(pLiteralGroup, 4, Len(LitGroup) - 5)
+        If TestForLeadingZero(ptLiteralSpeed) Then
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " LeadingZeroSustained")
+        End If
+        pSustainedSpeed = CLng(ptLiteralSpeed)
+        If pDirection = "VRB" And pSustainedSpeed > 6 Then 'only if no gusts
+            pHasErrors = True
+            pErrorText = Trim(pErrorText & " VariableOver6KTS")
+        End If
+        pGustSpeed = pSustainedSpeed
+    End If
+    If pSustainedSpeed > pGustSpeed Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " SustainedGreaterThanGust")
+    End If
+    If pSustainedSpeed = 0 And pLiteralGroup <> "00000KT" Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " ZeroSpeedNotCalm")
+    End If
+End Function
