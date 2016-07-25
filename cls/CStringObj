@@ -1,0 +1,27 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Function Init(ByVal Str As String) As CStringObj
+    pLiteralGroup = Str
+    pHasErrors = False
+    pErrorText = ""
+End Function
+
+'thanks VBA for not letting me use a generic object :|
