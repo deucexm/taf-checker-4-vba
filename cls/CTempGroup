@@ -1,0 +1,71 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pTempType As String
+Private pTempValue As Long
+Private pTempTimeStr As String
+Private pTempTime As Date
+
+Private ptTempStr As String
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get TempType() As String
+    TempType = pTempType
+End Property
+
+Public Property Get TempValue() As Long
+    TempValue = pTempValue
+End Property
+
+Public Property Get TempTimeStr() As String
+    TempTimeStr = pTempTimeStr
+End Property
+
+Public Property Get TempTime() As Date
+    TempTime = pTempTime
+End Property
+
+Public Function Init(LitGroup As String) As CTempGroup 'only handles TAF temp groups currently
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^T(X|N)?M?\d{2}/\d{4}Z$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    If Left(pLiteralGroup, 2) = "TX" Then
+        pTempType = "TAFMAX"
+    ElseIf Left(pLiteralGroup, 2) = "TN" Then
+        pTempType = "TAFMIN"
+    ElseIf Left(pLiteralGroup, 1) = "T" Then
+        pTempType = "TAFUNK"
+    End If
+    ptTempStr = Mid(pLiteralGroup, InStr(1, pLiteralGroup, "/") - 2, 2)
+    If InStr(1, pLiteralGroup, "M") Then
+        pTempValue = CLng(ptTempStr) * -1
+    Else
+        pTempValue = CLng(ptTempStr)
+    End If
+    pTempTimeStr = Mid(pLiteralGroup, Len(pLiteralGroup) - 4, 4)
+    If TestTooManyDays(Left(pTempTimeStr, 2)) Or TestTooManyHours(Right(pTempTimeStr, 2)) Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " TempTimeBad")
+        Exit Function
+    End If
+    pTempTime = BuildDTG(Left(pTempTimeStr, 2), Right(pTempTimeStr, 2))
+End Function
