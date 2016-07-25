@@ -1,0 +1,47 @@
+'3.8d10
+
+Option Explicit
+
+Private pLiteralGroup As String
+Private pHasErrors As Boolean
+Private pErrorText As String
+Private pLiteralTime As String
+Private pRealDate As Date
+
+Public Property Get LiteralGroup() As String
+    LiteralGroup = pLiteralGroup
+End Property
+
+Public Property Get HasErrors() As Boolean
+    HasErrors = pHasErrors
+End Property
+
+Public Property Get ErrorText() As String
+    ErrorText = pErrorText
+End Property
+
+Public Property Get LiteralTime() As String
+    LiteralTime = pLiteralTime
+End Property
+
+Public Property Get RealDate() As Date
+    RealDate = pRealDate
+End Property
+
+Public Function Init(LitGroup As String) As CIssueGroup
+    pHasErrors = False
+    If Not RXBool(LitGroup, "^\d{6}Z$") Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " Malformed")
+        Exit Function
+    End If
+    pLiteralGroup = LitGroup
+    pLiteralTime = Left(LitGroup, 6)
+    If TestTooManyDays(Left(pLiteralTime, 2)) Or TestTooManyHours(Mid(pLiteralTime, 3, 2)) Or _
+      Right(pLiteralTime, 2) > 59 Then
+        pHasErrors = True
+        pErrorText = Trim(pErrorText & " TimeBad")
+        Exit Function
+    End If
+    pRealDate = BuildDTG(Left(pLiteralTime, 2), Mid(pLiteralTime, 3, 2), Right(pLiteralTime, 2))
+End Function
